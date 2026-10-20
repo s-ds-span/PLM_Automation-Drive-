@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Drive Automation</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+  <link rel="stylesheet" href="/static/dashboard.css?v={{ app_version }}">
+  <script src="/static/vendor/chart.umd.min.js?v={{ app_version }}"></script>
+</head>
+<body data-dash-view="pipeline">
+<div class="dash-app">
+  <header class="dash-header">
+    <div class="header-brand">
+      <h1>Drive Automation</h1>
+      <p class="subtitle">SPAN Drive charge-point lab pipeline</p>
+    </div>
+    <div class="header-right">
+      <div id="role-badge" class="role-badge claiming">Connecting…</div>
+      <div id="run-status" class="run-status idle">Idle</div>
+    </div>
+  </header>
+
+  <div id="viewer-banner" class="viewer-banner hidden"></div>
+  <div id="sse-banner" class="sse-banner hidden" role="alert">
+    <span>Live updates paused — reconnecting…</span>
+    <button type="button" id="sse-reload-btn" class="btn secondary">Reload</button>
+  </div>
+
+  <div class="dash-body">
+    <nav class="dash-sidebar" role="navigation" aria-label="Dashboard sections">
+      <div class="nav-section">
+        <div class="nav-section-label">Automation</div>
+        <button type="button" class="nav-item active" data-view="pipeline">
+          <i class="ti ti-player-play" aria-hidden="true"></i>
+          <span class="nav-item-label">Throttle Pipeline</span>
+          <span class="nav-badge" id="nav-badge-pipeline">idle</span>
+        </button>
+        <button type="button" class="nav-item" data-view="jama">
+          <i class="ti ti-checklist" aria-hidden="true"></i>
+          <span class="nav-item-label">JAMA Test</span>
+          <span class="nav-badge" id="nav-badge-jama">idle</span>
+        </button>
+        <button type="button" class="nav-item" data-view="live">
+          <i class="ti ti-activity" aria-hidden="true"></i>
+          <span class="nav-item-label">Live Telemetry</span>
+        </button>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">Hardware</div>
+        <button type="button" class="nav-item" data-view="safety">
+          <i class="ti ti-shield" aria-hidden="true"></i>
+          <span class="nav-item-label">Safety</span>
+        </button>
+        <button type="button" class="nav-item" data-view="gateway">
+          <i class="ti ti-server" aria-hidden="true"></i>
+          <span class="nav-item-label">Gateway</span>
+        </button>
+        <button type="button" class="nav-item" data-view="decommission">
+          <i class="ti ti-trash" aria-hidden="true"></i>
+          <span class="nav-item-label">Decommission</span>
+        </button>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">Data</div>
+        <button type="button" class="nav-item" data-view="capture">
+          <i class="ti ti-database" aria-hidden="true"></i>
+          <span class="nav-item-label">Log Capture</span>
+          <span class="nav-badge" id="nav-badge-capture">idle</span>
+        </button>
+        <button type="button" class="nav-item" data-view="logs">
+          <i class="ti ti-clipboard-list" aria-hidden="true"></i>
+          <span class="nav-item-label">Event Log</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="dash-content">
+      <div id="panel-all" class="dash-overview-metrics">
+        <div class="overview-metric">
+          <span class="overview-label">Pipeline</span>
+          <span class="metric-val" id="ov-pipeline">idle</span>
+        </div>
+        <div class="overview-metric">
+          <span class="overview-label">Pilot</span>
+          <span class="metric-val" id="ov-pilot">—</span>
+        </div>
+        <div class="overview-metric">
+          <span class="overview-label">Duty / Adv</span>
+          <span class="metric-val" id="ov-duty">—</span>
+        </div>
+        <div class="overview-metric">
+          <span class="overview-label">LB2</span>
+          <span class="metric-val" id="ov-lb2">—</span>
+        </div>
+        <div class="overview-metric">
+          <span class="overview-label">Setpoint</span>
+          <span class="metric-val" id="ov-setpoint">—</span>
+        </div>
+        <div class="overview-metric">
+          <span class="overview-label">Panel current</span>
+          <span class="metric-val" id="ov-panel">—</span>
+        </div>
+      </div>
+
+      <div class="dash-main">
+        <!-- Throttle / LB2 one-click pipeline -->
+        <div class="card" data-section="pipeline" id="card-pipeline">
+          <h2 class="card-title"><i class="ti ti-player-play" aria-hidden="true"></i> Throttle Pipeline (EV + LB2)</h2>
+          <div class="gauges-grid" id="gauges-grid">
+            <div class="gauge-card">
+              <div class="gauge-slot" id="gauge-panel"></div>
+              <div class="gauge-caption">Panel current<span id="gauge-panel-sub" class="gauge-sub">of — A capacity</span></div>
+            </div>
+            <div class="gauge-card">
+              <div class="gauge-slot" id="gauge-duty"></div>
+              <div class="gauge-caption">Pilot duty cycle<span class="gauge-sub">CP pilot PWM</span></div>
+            </div>
+            <div class="gauge-card">
+              <div class="gauge-slot" id="gauge-drive"></div>
+              <div class="gauge-caption">Drive setpoint<span id="gauge-drive-sub" class="gauge-sub">panel → drive</span></div>
+            </div>
+            <div class="gauge-card">
+              <div class="gauge-slot" id="gauge-ev"></div>
+              <div class="gauge-caption">EV charging<span class="gauge-sub">applied current</span></div>
+            </div>
+          </div>
+          <div class="card-split card-split--pipeline">
+            <div class="card-split-form">
+              <form id="test-form">
+                <details class="config-group" open>
+                  <summary class="config-summary">
+                    <span class="config-summary-main"><i class="ti ti-settings" aria-hidden="true"></i> Phase 1 — Commission</span>
+                    <span class="config-summary-val" data-summary-for="breaker_rating_a" data-summary-suffix=" A" data-summary-empty="rating req."></span>
+                    <i class="ti ti-chevron-down config-chevron" aria-hidden="true"></i>
+                  </summary>
+                  <div class="config-body">
+                    <label class="checkbox-label label-with-help">
+                      <span class="label-text">
+                        <input type="checkbox" name="run_commission" id="run_commission" value="true">
+                        Run gateway commissioning at start
+                      </span>
+                      <button type="button" class="field-help" data-help="run_commission" aria-label="About commissioning" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                    </label>
+                    <div class="field-help-panel" id="help-run_commission" hidden>Adds this Drive as a DER on the gateway before the test (span-pcm). Leave off if the Drive is already commissioned.</div>
+
+                    <label class="label-with-help">
+                      <span class="label-text">Drive serial</span>
+                      <button type="button" class="field-help" data-help="drive_serial" aria-label="About drive serial" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                    </label>
+                    <input name="drive_serial" id="drive_serial" placeholder="DT-····" aria-describedby="hint-drive_serial">
+                    <span class="field-hint" id="hint-drive_serial">Required only when commissioning is checked.</span>
+                    <div class="field-help-panel" id="help-drive_serial" hidden>Serial of the Drive to commission (e.g. DT-1234). Required only when commissioning; otherwise falls back to config.env.</div>
+
+                    <label class="label-with-help">
+                      <span class="label-text">Breaker rating (A) <span class="req" aria-hidden="true">*</span></span>
+                      <button type="button" class="field-help" data-help="breaker_rating_a" aria-label="About breaker rating" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                    </label>
+                    <input name="breaker_rating_a" id="breaker_rating_a" type="number" min="1" step="1" required aria-required="true" placeholder="e.g. 30" aria-describedby="hint-breaker_rating_a">
+                    <span class="field-hint" id="hint-breaker_rating_a">Required for every run — master value for EV draw (80%) and throttle.</span>
+                    <div class="field-help-panel" id="help-breaker_rating_a" hidden>The commissioned Drive breaker current. Master value: EV draws 80% of it, and panel throttle triggers near it. Required even when commission is off.</div>
+
+                    <label class="label-with-help">
+                      <span class="label-text">Breaker top position <span class="req commission-req hidden" aria-hidden="true">*</span></span>
+                      <button type="button" class="field-help" data-help="top_position" aria-label="About top position" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                    </label>
+                    <input name="top_position" id="top_position" type="number" min="1" step="1" placeholder="e.g. 6" aria-describedby="hint-top_position">
+                    <span class="field-hint" id="hint-top_position">Physical top pole. BC ID = position + 8 (e.g. 6 → 14).</span>
+                    <div class="field-help-panel" id="help-top_position" hidden>Physical top-pole slot in the panel. Branch-Controller ID = position + 8. Required only when commissioning.</div>
+
+                    <label class="label-with-help">
+                      <span class="label-text">Breaker bottom position <span class="req commission-req hidden" aria-hidden="true">*</span></span>
+                      <button type="button" class="field-help" data-help="bottom_position" aria-label="About bottom position" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                    </label>
+                    <input name="bottom_position" id="bottom_position" type="number" min="1" step="1" placeholder="e.g. 8" aria-describedby="hint-bottom_position">
+                    <span class="field-hint" id="hint-bottom_position">Physical bottom pole. BC ID = position + 8 (e.g. 8 → 16).</span>
+                    <div class="field-help-panel" id="help-bottom_position" hidden>Physical bottom-pole slot. BC ID = position + 8. Required only when commissioning.</div>
+                  </div>
+                </details>
+
+                <details class="config-group">
+                  <summary class="config-summary">
+                    <span class="config-summary-main"><i class="ti ti-settings" aria-hidden="true"></i> EV settings</span>
+                    <span class="config-summary-val" id="ev-draw-summary">80% of rating</span>
+                    <i class="ti ti-chevron-down config-chevron" aria-hidden="true"></i>
+                  </summary>
+                  <div class="config-body">
+                    <div class="derived-value" id="ev-draw-derived">
+                      <span class="label-text">EV draw (computed)
+                        <button type="button" class="field-help" data-help="ev_draw" aria-label="About EV draw" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                      </span>
+                      <strong id="ev-draw-value">— A</strong>
+                      <span class="field-hint">= 80% × breaker rating (set once at Charge; follows pilot duty after that)</span>
+                    </div>
+                    <div class="field-help-panel" id="help-ev_draw" hidden>Not a free input. The pipeline always sets EV max current to 80% of the breaker rating. The EV simulator then follows the pilot duty cycle automatically during throttle.</div>
+
+                    <label class="label-with-help">
+                      <span class="label-text">Iterations</span>
+                      <button type="button" class="field-help" data-help="iterations" aria-label="About iterations" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                    </label>
+                    <input name="iterations" type="number" value="1" min="1">
+                    <div class="field-help-panel" id="help-iterations" hidden>How many times to repeat the charge → aggregate → throttle → recover cycle.</div>
+                  </div>
+                </details>
+
+                <details class="config-group">
+                  <summary class="config-summary">
+                    <span class="config-summary-main"><i class="ti ti-settings" aria-hidden="true"></i> Load Bank-2 (LB2)</span>
+                    <span class="config-summary-val" data-summary-for="lb2_max_amps" data-summary-suffix=" A"></span>
+                    <i class="ti ti-chevron-down config-chevron" aria-hidden="true"></i>
+                  </summary>
+                  <div class="config-body">
+                    <p class="hint-text">Panel load used for aggregation / throttle.</p>
+                    <label class="label-with-help">
+                      <span class="label-text">LB2 max panel current (A)</span>
+                      <button type="button" class="field-help" data-help="lb2_max_amps" aria-label="About LB2 max" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                    </label>
+                    <input name="lb2_max_amps" type="number" value="40" min="1" step="0.5">
+                    <div class="field-help-panel" id="help-lb2_max_amps" hidden>Soft upper limit for LB2 commanded current. Actual amps also cannot exceed what the <em>selected</em> channels can deliver (all four ≈ 83 A; CH3+4 alone ≈ 42 A).</div>
+
+                    <fieldset class="voltage-fieldset">
+                      <legend class="label-with-help">LB2 load channels
+                        <button type="button" class="field-help" data-help="lb2_channels" aria-label="About LB2 channels" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                      </legend>
+                      <div class="field-help-panel" id="help-lb2_channels" hidden>Enable only the channels that are physically connected for this run. Load steps are applied only on checked channels. Pick 120 V or 240 V per enabled channel.</div>
+                      <div class="channel-select-grid">
+                        <label class="channel-select-row">
+                          <input type="checkbox" name="lb2_ch1" id="lb2_ch1" value="1" class="lb2-ch-enable" data-ch="1" checked>
+                          <span>CH1</span>
+                          <select name="lb2_v_ch1" id="lb2_v_ch1" class="lb2-ch-voltage" data-ch="1">
+                            <option value="120" selected>120 V</option>
+                            <option value="240">240 V</option>
+                          </select>
+                        </label>
+                        <label class="channel-select-row">
+                          <input type="checkbox" name="lb2_ch2" id="lb2_ch2" value="2" class="lb2-ch-enable" data-ch="2" checked>
+                          <span>CH2</span>
+                          <select name="lb2_v_ch2" id="lb2_v_ch2" class="lb2-ch-voltage" data-ch="2">
+                            <option value="120" selected>120 V</option>
+                            <option value="240">240 V</option>
+                          </select>
+                        </label>
+                        <label class="channel-select-row">
+                          <input type="checkbox" name="lb2_ch3" id="lb2_ch3" value="3" class="lb2-ch-enable" data-ch="3" checked>
+                          <span>CH3</span>
+                          <select name="lb2_v_ch3" id="lb2_v_ch3" class="lb2-ch-voltage" data-ch="3">
+                            <option value="120">120 V</option>
+                            <option value="240" selected>240 V</option>
+                          </select>
+                        </label>
+                        <label class="channel-select-row">
+                          <input type="checkbox" name="lb2_ch4" id="lb2_ch4" value="4" class="lb2-ch-enable" data-ch="4" checked>
+                          <span>CH4</span>
+                          <select name="lb2_v_ch4" id="lb2_v_ch4" class="lb2-ch-voltage" data-ch="4">
+                            <option value="120">120 V</option>
+                            <option value="240" selected>240 V</option>
+                          </select>
+                        </label>
+                      </div>
+                    </fieldset>
+
+                    <label class="label-with-help">
+                      <span class="label-text">Delay before LB2 (sec)</span>
+                      <button type="button" class="field-help" data-help="lb2_start_delay" aria-label="About LB2 delay" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                    </label>
+                    <input name="lb2_start_delay" type="number" value="10" min="0">
+                    <div class="field-help-panel" id="help-lb2_start_delay" hidden>Pause after the EV enters Charge before applying panel load, so the pilot settles first.</div>
+
+                    <label class="label-with-help">
+                      <span class="label-text">LB2 step interval (sec)</span>
+                      <button type="button" class="field-help" data-help="lb2_ramp_interval" aria-label="About step interval" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                    </label>
+                    <input name="lb2_ramp_interval" id="lb2_ramp_interval" type="number" value="5" min="0.5" step="0.5" required>
+                    <div class="field-help-panel" id="help-lb2_ramp_interval" hidden>Delay between each step-wise LB2 current increase (aggregate) or decrease (recover).</div>
+
+                    <label class="label-with-help">
+                      <span class="label-text">LB2 step size (A)</span>
+                      <button type="button" class="field-help" data-help="lb2_step_a" aria-label="About step size" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                    </label>
+                    <input name="lb2_step_a" id="lb2_step_a" type="number" value="5" min="0.5" step="0.5" required>
+                    <div class="field-help-panel" id="help-lb2_step_a" hidden>How many amps to raise or lower LB2 commanded current on each step.</div>
+
+                    <label class="checkbox-label label-with-help">
+                      <span class="label-text">
+                        <input type="checkbox" name="use_dynamic_load" id="use_dynamic_load" value="true" checked>
+                        Dynamic LB2 (closed-loop throttle)
+                      </span>
+                      <button type="button" class="field-help" data-help="use_dynamic_load" aria-label="About dynamic LB2" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                    </label>
+                    <div class="field-help-panel" id="help-use_dynamic_load" hidden>On: step LB2 up until the panel throttles (and optionally raise the ceiling if duty stays &gt;10%). Off: fixed open-loop ramp to the max above.</div>
+                  </div>
+                </details>
+
+                <details class="config-group">
+                  <summary class="config-summary">
+                    <span class="config-summary-main"><i class="ti ti-settings" aria-hidden="true"></i> Phase timing</span>
+                    <span class="config-summary-val" data-summary-for="phase_delay" data-summary-suffix=" s"></span>
+                    <i class="ti ti-chevron-down config-chevron" aria-hidden="true"></i>
+                  </summary>
+                  <div class="config-body">
+                    <label class="label-with-help">
+                      <span class="label-text">Phase delay (sec)</span>
+                      <button type="button" class="field-help" data-help="phase_delay" aria-label="About phase delay" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                    </label>
+                    <input name="phase_delay" id="phase_delay" type="number" value="0" min="0" step="0.5">
+                    <div class="field-help-panel" id="help-phase_delay" hidden>Optional pause between major pipeline stages only (after capture, after boot ready, before recover, etc.). Does not insert delays between pilot watch → connect → charge, and does not control LB2 step timing.</div>
+                  </div>
+                </details>
+
+                <div class="btn-row">
+                  <button type="button" id="check-btn" class="btn secondary">Check availability</button>
+                  <button type="submit" id="start-btn" class="btn primary">Run pipeline</button>
+                  <button type="button" id="stop-btn" class="btn danger" disabled>Stop</button>
+                </div>
+              </form>
+              <div id="availability-box" class="availability-box hidden"></div>
+            </div>
+            <div class="card-split-live">
+              <div id="pipe-status-card" class="pipe-live-full gw-status-card">
+                <div class="panel-empty-state">
+                  <i class="ti ti-player-play" aria-hidden="true"></i>
+                  <div class="empty-heading">No run active</div>
+                  <p class="empty-instruction">Fill the settings on the left, then click <strong>Run pipeline</strong>. Live phases, gauges, and failures appear here.</p>
+                </div>
+                <div class="status-job-body">
+                  <div class="gw-status-head">
+                    <span class="gw-status-title" id="pipe-live-title">Pipeline — ready</span>
+                    <span id="pipe-live-pill" class="gw-phase-pill">idle</span>
+                  </div>
+                  <div id="pipeline-stepper" class="pipeline-stepper" aria-label="Pipeline phases"></div>
+                  <div class="pipe-sub-h">Validation checklist
+                    <span class="pipe-sub-hint">each row = a manual check the automation is proving</span>
+                  </div>
+                  <div id="validation-checklist" class="validation-checklist" role="list" aria-live="polite">
+                    <div class="validation-empty">Checks appear here as the run progresses.</div>
+                  </div>
+                  <div class="pipe-live-metrics">
+                    <div class="pipe-metric"><label>Phase</label><span id="phase-name" class="accent">—</span></div>
+                    <div class="pipe-metric"><label>Iteration</label><span id="phase-iter">—</span></div>
+                    <div class="pipe-metric"><label>Elapsed</label><span id="phase-elapsed">00:00</span></div>
+                    <div class="pipe-metric"><label>Remaining</label><span id="phase-remaining">—</span></div>
+                    <div class="pipe-metric"><label>Duration</label><span id="phase-duration">—</span></div>
+                    <div class="pipe-metric"><label>Setpoint</label>
+                      <span><span id="setpoint-amps">—</span> <span id="setpoint-source" class="setpoint-badge">—</span></span>
+                    </div>
+                  </div>
+                  <div class="phase-progress-track">
+                    <div id="phase-progress" class="phase-progress-fill"></div>
+                  </div>
+                  <div id="pipe-failure-card" class="pipe-failure-card hidden" role="alert">
+                    <div class="pipe-failure-head">
+                      <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+                      <strong>Failure detail</strong>
+                    </div>
+                    <div class="pipe-failure-grid">
+                      <div><label>Pipeline phase</label><span id="fail-pipeline-phase">—</span></div>
+                      <div><label>Fine phase</label><span id="fail-phase">—</span></div>
+                      <div><label>Iteration</label><span id="fail-iteration">—</span></div>
+                      <div><label>Setpoint</label><span id="fail-setpoint">—</span></div>
+                    </div>
+                    <p id="fail-message" class="pipe-failure-msg">—</p>
+                    <pre id="fail-detail" class="pipe-failure-detail hidden"></pre>
+                  </div>
+                  <div class="pipe-report-links hidden" id="pipe-report-links">
+                    <a id="pipe-report-link" class="btn secondary" href="#" target="_blank" rel="noopener">Open run report</a>
+                    <a id="pipe-modbus-link" class="btn secondary" href="#">Download Modbus / SBX</a>
+                    <a id="pipe-pilot-link" class="btn secondary" href="#">Download Pilot log</a>
+                    <a id="pipe-ev-loads-link" class="btn secondary" href="#">Download EV loads</a>
+                    <a id="pipe-lb2-link" class="btn secondary" href="#">Download LB2 log</a>
+                    <a id="pipe-panel-link" class="btn secondary" href="#">Download Panel log</a>
+                    <a id="pipe-zip-link" class="btn secondary" href="#">Download full zip</a>
+                  </div>
+                  <div class="pipe-sub-h">Pipeline activity</div>
+                  <div id="pipeline-activity" class="gw-activity-log" role="log" aria-live="polite"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- JAMA-test pipeline (EV + gateway only; snapshot/restore) -->
+        <div class="card" data-section="jama" id="card-jama">
+          <h2 class="card-title"><i class="ti ti-checklist" aria-hidden="true"></i> JAMA Test (EV + gateway)</h2>
+          <p class="hint-text">
+            Runs advertise / comms JAMA cases only. Starts SBX/UART capture, verifies SBX comms,
+            then runs selected cases. Requires EV Simulator in Charge mode and gateway SSH.
+            At start, mutable values (user-max, seriald, pilot, relay) are noted; on any failure they are restored.
+            Gateway commands print live in the activity log. Does not use Load Bank-2.
+          </p>
+          <div class="card-split card-split--pipeline">
+            <div class="card-split-form">
+              <form id="jama-form">
+                <label>Test name <input name="test_name" type="text" value="JamaTest01"></label>
+                <label>Notes <input name="notes" type="text" placeholder="optional"></label>
+                <label>
+                  Breaker instance id
+                  <input name="breaker_instance_id" id="jama-breaker-instance" type="number" placeholder="from DRIVE_BREAKER_INSTANCE_ID">
+                </label>
+                <div class="config-group" style="margin:12px 0">
+                  <div class="config-summary-main" style="margin-bottom:8px">
+                    <i class="ti ti-list-check" aria-hidden="true"></i> Cases to run
+                  </div>
+                  <p class="hint-text" style="margin-top:0">Leave all checked for full suite, or uncheck to skip.</p>
+                  <div id="jama-case-list" class="jama-case-list"></div>
+                </div>
+                <div class="btn-row">
+                  <button type="submit" id="jama-start-btn" class="btn primary">Run JAMA test</button>
+                  <button type="button" id="jama-stop-btn" class="btn danger" disabled>Stop</button>
+                </div>
+              </form>
+            </div>
+            <div class="card-split-live">
+              <div class="pipe-live-panel">
+                <div class="pipe-sub-h">JAMA phases</div>
+                <div id="jama-stepper" class="pipeline-stepper" aria-label="JAMA pipeline phases"></div>
+                <div class="pipe-sub-h">Activity</div>
+                <div id="jama-activity" class="gw-activity-log" role="log" aria-live="polite"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live telemetry (detail: OLED, LB2, charts) -->
+        <div class="card" data-section="live" id="card-live">
+          <h2 class="card-title"><i class="ti ti-activity" aria-hidden="true"></i> Live Telemetry</h2>
+          <div class="metrics-grid">
+            <div class="metric-card ev-card">
+              <h3>EV Simulator — Control Pilot</h3>
+              <div class="oled" id="oled-display">
+                <div class="oled-row">
+                  <span class="oled-state" id="oled-state">--</span>
+                  <span class="oled-hv" id="oled-hv">--.-- V</span>
+                </div>
+                <div class="oled-row">
+                  <span id="oled-duty">-- %</span>
+                  <span id="oled-freq">---- Hz</span>
+                </div>
+                <div class="oled-row">
+                  <span>advA:</span><span id="oled-adva">0.0 A</span>
+                </div>
+                <div class="oled-row">
+                  <span>chgA:</span><span id="oled-chga">0.0 A</span>
+                </div>
+                <div class="oled-row">
+                  <span>mode:</span><span id="oled-mode">—</span>
+                </div>
+              </div>
+              <div class="pilot-grid" id="ev-metrics-grid">
+                <div class="pilot-metric"><span class="metric-label">State</span><span class="metric-value" id="pilot-state">—</span></div>
+                <div class="pilot-metric"><span class="metric-label">Adv current</span><span class="metric-value" id="pilot-current">—</span></div>
+                <div class="pilot-metric"><span class="metric-label">Charging</span><span class="metric-value" id="pilot-charging">—</span></div>
+                <div class="pilot-metric"><span class="metric-label">Max set</span><span class="metric-value" id="pilot-maxset">—</span></div>
+                <div class="pilot-metric"><span class="metric-label">CP high</span><span class="metric-value" id="pilot-cph">—</span></div>
+                <div class="pilot-metric"><span class="metric-label">CP low</span><span class="metric-value" id="pilot-cpl">—</span></div>
+              </div>
+            </div>
+            <div class="metric-card lb2-card">
+              <div class="lb2-head">
+                <h3>Load Bank-2</h3>
+                <div class="lb2-totals">
+                  <span>Total <strong id="lb2-total-w">0 W</strong></span>
+                  <span><strong id="lb2-total-a">0.0 A</strong></span>
+                </div>
+              </div>
+              <div id="lb2-channels" class="lb2-channels">—</div>
+            </div>
+          </div>
+          <div class="charts-grid">
+            <div class="chart-panel chart-panel--wide">
+              <div class="chart-head">
+                <h3>Panel current vs capacity</h3>
+                <span class="chart-legend">
+                  <span class="lg lg-panel">Panel A</span>
+                  <span class="lg lg-cap">Capacity</span>
+                </span>
+              </div>
+              <canvas id="panel-current-chart" height="160"></canvas>
+            </div>
+            <div class="chart-panel">
+              <div class="chart-head">
+                <h3>Duty cycle &amp; current</h3>
+                <span class="chart-legend">
+                  <span class="lg lg-duty">Duty %</span>
+                  <span class="lg lg-curr">Current A</span>
+                </span>
+              </div>
+              <canvas id="duty-current-chart" height="160"></canvas>
+            </div>
+            <div class="chart-panel">
+              <div class="chart-head">
+                <h3>Control pilot voltages</h3>
+                <span class="chart-legend">
+                  <span class="lg lg-cph">CPH</span>
+                  <span class="lg lg-cpl">CPL</span>
+                </span>
+              </div>
+              <canvas id="cp-volt-chart" height="160"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Safety -->
+        <div class="card" data-section="safety" id="card-safety">
+          <h2 class="card-title"><i class="ti ti-shield" aria-hidden="true"></i> Safety Controls</h2>
+          <p class="hint-text">Use anytime. Confirm before shutdown — hardware will power down. Does not decommission the Drive.</p>
+          <div class="btn-row">
+            <button type="button" id="stop-automation-btn" class="btn danger">Stop automation</button>
+          </div>
+          <div class="btn-row">
+            <button type="button" id="shutdown-ev-btn" class="btn warn">Safe exit EV Simulator</button>
+            <button type="button" id="shutdown-lb2-btn" class="btn warn">Safe exit Load Bank-2</button>
+          </div>
+          <div class="btn-row">
+            <button type="button" id="shutdown-both-btn" class="btn danger">Safe exit both units</button>
+          </div>
+        </div>
+
+        <!-- Gateway -->
+        <div class="card" data-section="gateway" id="card-gateway">
+          <h2 class="card-title"><i class="ti ti-server" aria-hidden="true"></i> Gateway Access</h2>
+            <p class="hint-text">
+            Required for one-click runs (precheck before pipeline). Preferred:
+            <code>ssh -F ~/.ssh/span/&lt;GATEWAY_SERIAL&gt;/spanssh-config &lt;GATEWAY_SERIAL&gt;</code>
+            (no long-term CA cert). Set <code>GATEWAY_SERIAL</code> in config.env.
+            Legacy: <code>GATEWAY_SSH_HOST</code> + cert/password.
+          </p>
+          <div class="btn-row">
+            <button type="button" id="gateway-test-btn" class="btn secondary">Test gateway SSH</button>
+          </div>
+          <div id="gateway-box" class="availability-box hidden"></div>
+        </div>
+
+        <!-- Decommission (separate from one-click) -->
+        <div class="card" data-section="decommission" id="card-decommission">
+          <h2 class="card-title"><i class="ti ti-trash" aria-hidden="true"></i> Decommission (Separate)</h2>
+          <p class="hint-text">
+            Not part of the one-click pipeline. Clears DER breaker + MQTT shadows on the gateway.
+          </p>
+          <label>Breaker instance id <input id="decom-breaker-id" type="number" placeholder="e.g. 27"></label>
+          <label>Top BC instance <input id="decom-top-bc" type="number" placeholder="optional"></label>
+          <label>Bottom BC instance <input id="decom-bottom-bc" type="number" placeholder="optional"></label>
+          <div class="btn-row">
+            <button type="button" id="decommission-btn" class="btn danger">Run decommission</button>
+          </div>
+        </div>
+
+        <!-- Log capture — CAN + SBX (Modbus UI) -->
+        <div class="card" data-section="capture" id="card-capture-unified">
+          <h2 class="card-title"><i class="ti ti-database" aria-hidden="true"></i> Log capturing — CAN bus &amp; Modbus (SBX)</h2>
+          <div class="card-split card-split--capture">
+            <div class="card-split-form">
+              <div class="inp-row inp-group">
+                <label>Gateway serial number</label>
+                <select class="capture-gateway-serial" id="cap-unified-gateway">
+                  <option value="">— select gateway serial —</option>
+                </select>
+              </div>
+              <p class="capture-gateway-hint hint-text" id="cap-unified-host-hint">
+                Select a gateway serial (GATEWAY_SERIALS in config.env → panels_config.yml).
+              </p>
+              <div class="inp-row" style="margin:8px 0">
+                <label>
+                  <input type="checkbox" id="cap-unified-skip-can" checked>
+                  SBX / Modbus only (skip CAN — use when PCAN-USB is not plugged in)
+                </label>
+              </div>
+              <div class="btn-row">
+                <button type="button" class="btn-cap btn-cap-start" id="btn-cap-unified-start">Start capture</button>
+                <button type="button" class="btn-cap btn-cap-stop" id="btn-cap-unified-stop">Stop</button>
+                <span id="cap-unified-badge" class="badge badge-idle">idle</span>
+              </div>
+              <div id="cap-unified-alerts" class="capture-alerts" role="alert" hidden></div>
+              <div class="sub-h">CAN bus — relay status
+                <span id="cap-can-health" class="cap-stream-health" title="">—</span>
+              </div>
+              <div class="row"><span class="lbl">MID relay</span><span class="val" id="cap-can-mid">—</span></div>
+              <div class="row"><span class="lbl">DER relay</span><span class="val" id="cap-can-der">—</span></div>
+              <div class="row"><span class="lbl">NFT relay</span><span class="val" id="cap-can-nft">—</span></div>
+              <div class="sub-h">Drive SBX — status
+                <span id="cap-modbus-health" class="cap-stream-health" title="">—</span>
+              </div>
+              <div class="row"><span class="lbl">Drive status</span>
+                <span class="val yellow val-truncate" id="cap-mod-led">—</span></div>
+            </div>
+            <div class="card-split-side">
+              <div class="sub-h">Live CAN bus log</div>
+              <div class="capture-live-log-wrap">
+                <div class="capture-live-log-head">
+                  <span>CAN tail</span>
+                  <span class="cap-log-age" id="cap-can-log-age">—</span>
+                  <span class="cap-log-file" id="cap-can-log-file" title="">—</span>
+                  <button type="button" class="btn-cap-expand" data-cap-expand="can">Expand</button>
+                </div>
+                <pre id="cap-can-live-log" class="capture-live-log">(start capture to view live CAN lines)</pre>
+              </div>
+              <div class="sub-h" style="margin-top:12px">Live Modbus / SBX log</div>
+              <div class="capture-live-log-wrap">
+                <div class="capture-live-log-head">
+                  <span>SBX tail</span>
+                  <span class="cap-log-age" id="cap-modbus-log-age">—</span>
+                  <span class="cap-log-file" id="cap-modbus-log-file" title="">—</span>
+                  <button type="button" class="btn-cap-expand" data-cap-expand="modbus">Expand</button>
+                </div>
+                <pre id="cap-modbus-live-log" class="capture-live-log">(start capture to view live SBX lines)</pre>
+              </div>
+              <details class="capture-downloads-details" style="margin-top:12px">
+                <summary class="sub-h" style="cursor:pointer">Downloads</summary>
+                <div id="log-files-unified"></div>
+              </details>
+            </div>
+          </div>
+        </div>
+
+        <!-- Manual lab current capture (pilot + EV + LB2 + panel) -->
+        <div class="card" data-section="capture" id="card-capture-lab">
+          <h2 class="card-title"><i class="ti ti-activity-heartbeat" aria-hidden="true"></i> Lab current capture (manual)</h2>
+          <p class="hint-text">
+            Log-only capture while you operate the units yourself. Stream checkboxes
+            only choose what to record — they do <strong>not</strong> Switch ON loads.
+            Use view-only login by default so EV/LB2 stay unchanged.
+          </p>
+          <div class="card-split card-split--capture">
+            <div class="card-split-form">
+              <div class="inp-row" style="display:flex;flex-wrap:wrap;gap:12px">
+                <label><input type="checkbox" id="lab-cap-pilot" checked> Log Pilot dingus</label>
+                <label><input type="checkbox" id="lab-cap-ev" checked> Log EV load meters</label>
+                <label><input type="checkbox" id="lab-cap-lb2" checked> Log Load Bank 2 meters</label>
+                <label><input type="checkbox" id="lab-cap-panel" checked> Log Panel (gateway)</label>
+              </div>
+              <div class="inp-row" style="margin:8px 0">
+                <label>
+                  <input type="checkbox" id="lab-cap-take-control">
+                  Take exclusive EV/LB2 control (optional — leave off for log-only; does not auto Switch ON loads)
+                </label>
+              </div>
+              <div class="btn-row">
+                <button type="button" class="btn-cap btn-cap-start" id="btn-lab-cap-start">Start lab capture</button>
+                <button type="button" class="btn-cap btn-cap-stop" id="btn-lab-cap-stop">Stop</button>
+                <span id="lab-cap-badge" class="badge badge-idle">idle</span>
+              </div>
+              <div id="lab-cap-notes" class="capture-alerts" role="status"></div>
+              <div class="sub-h">Live samples</div>
+              <div class="row"><span class="lbl">Pilot mode</span><span class="val" id="lab-cap-live-mode">—</span></div>
+              <div class="row"><span class="lbl">Pilot / EV A</span><span class="val" id="lab-cap-live-ev">—</span></div>
+              <div class="row"><span class="lbl">Duty / Adv</span><span class="val" id="lab-cap-live-duty">—</span></div>
+              <div class="row"><span class="lbl">LB2 A</span><span class="val" id="lab-cap-live-lb2">—</span></div>
+              <div class="row"><span class="lbl">Panel A</span><span class="val" id="lab-cap-live-panel">—</span></div>
+            </div>
+            <div class="card-split-side">
+              <div class="sub-h">Downloads</div>
+              <div id="lab-cap-links" class="uart-links"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- UART logger -->
+        <div class="card" data-section="capture" id="card-capture-uart">
+          <h2 class="card-title"><i class="ti ti-terminal-2" aria-hidden="true"></i> UART logger</h2>
+          <div class="card-split card-split--capture">
+            <div class="card-split-form">
+              <div class="inp-row inp-group">
+                <label>Gateway serial number</label>
+                <select class="capture-gateway-serial" id="cap-uart-gateway">
+                  <option value="">— select gateway serial —</option>
+                </select>
+              </div>
+              <p class="capture-gateway-hint hint-text">
+                Same gateway serial → SSH to wall host for PCM / MainsMID UART.
+              </p>
+              <div class="inp-row">
+                <label>Capture strings (optional)</label>
+                <textarea id="cap-uart-strings" placeholder="One string per line"></textarea>
+              </div>
+              <div class="btn-row">
+                <button type="button" class="btn-cap btn-cap-start" id="btn-cap-uart-start">Start UART capture</button>
+                <button type="button" class="btn-cap btn-cap-stop" id="btn-cap-uart-stop">Stop</button>
+                <span id="cap-uart-badge" class="badge badge-idle">idle</span>
+              </div>
+            </div>
+            <div class="card-split-side">
+              <div class="sub-h">▶ Live downloads &amp; errors</div>
+              <div id="cap-uart-errors" class="capture-side-errors" role="alert"></div>
+              <div id="cap-uart-links" class="uart-links"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="card" data-section="logs" id="card-logs">
+          <h2 class="card-title"><i class="ti ti-clipboard-list" aria-hidden="true"></i> Event Log &amp; Artifacts</h2>
+          <div class="event-log-head">
+            <div class="btn-row event-log-actions">
+              <button type="button" id="save-log-btn" class="btn secondary">Save .log</button>
+              <button type="button" id="clear-log-btn" class="btn secondary">Clear</button>
+            </div>
+          </div>
+          <pre id="event-log" class="event-log"></pre>
+          <div id="artifact-box" class="artifact-box hidden">
+            <strong>Results ready</strong>
+            <p id="artifact-text" class="artifact-text"></p>
+            <div class="btn-row">
+              <a id="artifact-report" class="btn secondary" href="#" target="_blank" rel="noopener">Open run report</a>
+              <a id="artifact-modbus" class="btn secondary" href="#">Download Modbus / SBX</a>
+              <a id="artifact-pilot" class="btn secondary" href="#">Download Pilot log</a>
+              <a id="artifact-ev-loads" class="btn secondary" href="#">Download EV loads</a>
+              <a id="artifact-lb2" class="btn secondary" href="#">Download LB2 log</a>
+              <a id="artifact-panel" class="btn secondary" href="#">Download Panel log</a>
+              <a id="artifact-download" class="btn primary" href="#">Download full zip</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <span>© {{ copyright_year }} Span.io — Drive Automation</span>
+    <span>Version {{ app_version }}</span>
+  </footer>
+</div>
+
+  <div id="ev-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <h2>EV Simulator not available</h2>
+      <p id="ev-modal-text">EV Simulator is in use by another operator.</p>
+      <button type="button" id="ev-modal-close" class="btn secondary">OK</button>
+    </div>
+  </div>
+
+  <div id="ceiling-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="ceiling-modal-title">
+    <div class="modal-content">
+      <h2 id="ceiling-modal-title">Raise LB2 ceiling?</h2>
+      <p id="ceiling-modal-text">LB2 reached the configured max, but the charge point is not fully throttled.</p>
+      <p class="modal-hint" id="ceiling-modal-hint"></p>
+      <label class="label-with-help">
+        <span class="label-text">New LB2 ceiling (A)</span>
+      </label>
+      <input id="ceiling-modal-new-a" type="number" min="1" step="0.5">
+      <div class="btn-row" style="margin-top: 1rem;">
+        <button type="button" id="ceiling-modal-continue" class="btn primary">Continue past ceiling</button>
+        <button type="button" id="ceiling-modal-stop" class="btn secondary">Stop aggregation</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="capture-log-fullscreen" class="capture-log-fullscreen hidden" role="dialog" aria-modal="true" aria-label="Expanded capture log">
+    <div class="capture-log-fullscreen-head">
+      <strong id="cap-fs-title">Capture log</strong>
+      <button type="button" id="cap-fs-close" class="btn secondary">Close (Esc)</button>
+    </div>
+    <pre id="cap-fs-body" class="capture-live-log capture-live-log--fullscreen"></pre>
+  </div>
+
+  <script src="/static/dashboard.js?v={{ app_version }}"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+config.env
+.venv/
+__pycache__/
+*.pyc
+logs/
+artifacts/
+*.jsonl
+
+# Per-wall deploy env (may contain passwords)
+walls/_shared.env
+walls/*.env
+!walls/_template.env
+!walls/*.env.example

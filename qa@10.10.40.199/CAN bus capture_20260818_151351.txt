@@ -1,0 +1,6 @@
+CAN Bus Filtered Capture
+Host    : qa@10.10.40.199
+Command : spanbus logger -i socketcan -d can0
+Started : 2026-08-18T15:14:03.917929
+Filters : PAYLOAD_MID_RELAY_STATE, PAYLOAD_DER_LANDED_CIRCUIT_CONTROL_STATE, PAYLOAD_NFT_LANDED_CIRCUIT_CONTROL_STATE
+============================================================

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Drive JAMA Test Report — run_DRAFT</title>
+<style>
+:root {
+  --bg: #f6f8fa;
+  --card: #ffffff;
+  --ink: #1f2328;
+  --muted: #656d76;
+  --line: #d0d7de;
+  --accent: #0969da;
+  --pass: #1a7f37;
+  --pass-bg: #dafbe1;
+  --fail: #cf222e;
+  --fail-bg: #ffebe9;
+  --chip: #f6f8fa;
+  --section: #24292f;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background: var(--bg); color: var(--ink); margin: 0; padding: 28px 32px 48px;
+  line-height: 1.5;
+}
+h1 { color: var(--section); margin: 0 0 6px; font-size: 1.55rem; font-weight: 700; }
+h2 {
+  color: var(--section); margin: 32px 0 14px; font-size: 1.05rem; font-weight: 700;
+  border-bottom: 2px solid var(--line); padding-bottom: 8px;
+}
+.meta { color: var(--muted); font-size: 0.9rem; margin-bottom: 18px; }
+.badge {
+  display: inline-block; padding: 3px 12px; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.03em;
+}
+.badge.pass { background: var(--pass-bg); color: var(--pass); border: 1px solid #4ac26b66; }
+.badge.fail { background: var(--fail-bg); color: var(--fail); border: 1px solid #ff818266; }
+.summary {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px; margin: 16px 0 22px;
+}
+.summary .card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 12px; text-align: center; box-shadow: 0 1px 2px #1f23280a;
+}
+.summary .card .n { font-size: 1.65rem; font-weight: 750; color: var(--ink); }
+.summary .card .l { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+.summary .card.pass-tone .n { color: var(--pass); }
+.summary .card.fail-tone .n { color: var(--fail); }
+.case {
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 16px; margin: 12px 0; box-shadow: 0 1px 2px #1f23280a;
+}
+.case.fail { border-color: #ff8182; background: #fff8f8; }
+.case-head {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  justify-content: space-between; margin-bottom: 12px;
+}
+.case-title { font-weight: 650; color: var(--section); font-size: 0.95rem; }
+.metrics {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px; margin: 0 0 12px;
+}
+.metric {
+  background: #eef6ff; border: 1px solid #b6d4fe; border-radius: 8px; padding: 8px 10px;
+}
+.metric label {
+  display: block; color: var(--accent); font-size: 0.65rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px;
+}
+.metric span { font-size: 1.05rem; font-weight: 700; color: var(--section); font-variant-numeric: tabular-nums; }
+.chips {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px; margin: 8px 0;
+}
+.chip {
+  background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+}
+.chip label {
+  display: block; color: var(--muted); font-size: 0.65rem; font-weight: 650;
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px;
+}
+.chip span { color: var(--ink); font-size: 0.86rem; word-break: break-word; }
+.notes { margin-top: 12px; }
+.notes h4 {
+  margin: 0 0 6px; color: var(--muted); font-size: 0.72rem;
+  text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em;
+}
+.evidence {
+  background: #f6f8fa; border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; margin: 6px 0; font-size: 0.78rem; color: #424a53;
+  white-space: pre-wrap; word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.evidence .src { color: var(--accent); font-weight: 650; }
+.ok { color: var(--pass); } .err { color: var(--fail); } .warn { color: #9a6700; }
+a { color: var(--accent); }
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: var(--card); }
+th, td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: left; }
+th { color: var(--muted); font-size: 0.7rem; text-transform: uppercase; background: #f6f8fa; }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 16px; margin: 10px 0; box-shadow: 0 1px 2px #1f23280a;
+}
+.hero {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 18px 20px; margin-bottom: 8px; box-shadow: 0 1px 2px #1f23280a;
+}
+</style>
+</head><body>
+<div class="hero">
+<h1>Drive · JAMA Test Report</h1>
+<div class="meta">
+  Run ID: run_DRAFT<br>
+  Charger: Drive · Operator: qa<br>
+  2026-07-24T10:00:00+00:00 — 2026-07-24T10:10:00+00:00<br>
+  Generated: 2026-07-24T09:47:22.840510+00:00
+</div>
+</div>
+
+<div class="summary">
+  <div class="card"><div class="n">6</div><div class="l">Tests</div></div>
+  <div class="card pass-tone"><div class="n">5</div><div class="l">Passed</div></div>
+  <div class="card fail-tone"><div class="n">1</div><div class="l">Failed</div></div>
+  <div class="card"><div class="n">83.3%</div><div class="l">Pass rate</div></div>
+  <div class="card"><div class="n"><span class="badge fail">FAIL</span></div><div class="l">Overall</div></div>
+</div>
+<p class="err"><strong>Stopped:</strong> Mismatch on DRIVE-SBX-0002: expected MsgCpuUtil: request 0x000D and response 0x000E both present, got 0x000D missing; 0x000E missing</p>
+<p><a href="/api/artifacts/x/download">Download capture logs</a></p>
+
+<div class="card">
+  <div class="chips">
+    <div class="chip"><label>Test name</label><span>draft</span></div>
+    <div class="chip"><label>Breaker rating</label><span>30 A</span></div>
+    <div class="chip"><label>Use LB2</label><span>True</span></div>
+    <div class="chip"><label>EV URL</label><span>http://x</span></div>
+  </div>
+</div>
+
+<h2>Capture</h2>
+
+    <div class="case">
+      <div class="case-head">
+        <div class="case-title">DRIVE-CAP-0001 — Capture stream: SBX</div>
+        <span class="badge pass">PASS</span>
+      </div>
+      
+      <div class="chips">
+        <div class="chip"><label>Signal</label><span>sbx</span></div>
+        <div class="chip"><label>Expected</label><span>capture started</span></div>
+        <div class="chip"><label>Observed</label><span>started; data available</span></div>
+        <div class="chip"><label>Sources</label><span>sbx</span></div>
+      </div>
+      
+    </div>
+    <h2>Commission</h2>
+
+    <div class="case">
+      <div class="case-head">
+        <div class="case-title">DRIVE-COM-0001 — Commissioned breaker rating and positions</div>
+        <span class="badge pass">PASS</span>
+      </div>
+      <div class="metrics"><div class="metric"><label>Breaker rating</label><span>30 A</span></div><div class="metric"><label>Top tab</label><span>14</span></div><div class="metric"><label>Bottom tab</label><span>16</span></div></div>
+      <div class="chips">
+        <div class="chip"><label>Signal</label><span>breaker_rating_a / tab positions</span></div>
+        <div class="chip"><label>Expected</label><span>rating 30 A @ tabs 14/16</span></div>
+        <div class="chip"><label>Observed</label><span>rating 30 A @ tabs 14/16</span></div>
+        <div class="chip"><label>Sources</label><span>gateway</span></div>
+      </div>
+      <div class="notes"><h4>Notes — log evidence (1)</h4><div class="evidence"><span class="src">gateway</span> @ — (commission)
+DER breaker instance=42 rating=30 A tabs=14/16</div></div>
+    </div>
+    
+    <div class="case">
+      <div class="case-head">
+        <div class="case-title">DRIVE-COM-0002 — Drive discovery success</div>
+        <span class="badge pass">PASS</span>
+      </div>
+      <div class="metrics"><div class="metric"><label>Discovery</label><span>DISCOVERY_SUCCESSFUL</span></div></div>
+      <div class="chips">
+        <div class="chip"><label>Signal</label><span>discovery_state</span></div>
+        <div class="chip"><label>Expected</label><span>DISCOVERY_SUCCESSFUL</span></div>
+        <div class="chip"><label>Observed</label><span>DISCOVERY_SUCCESSFUL</span></div>
+        <div class="chip"><label>Sources</label><span>gateway</span></div>
+      </div>
+      <div class="notes"><h4>Notes — log evidence (1)</h4><div class="evidence"><span class="src">gateway</span> @ — (discovery)
+discovery_state=DISCOVERY_SUCCESSFUL</div></div>
+    </div>
+    <h2>SBX Handshake</h2>
+
+    <div class="case">
+      <div class="case-head">
+        <div class="case-title">DRIVE-SBX-0001 — SBX comms: AssignDynamicBusId + Ack</div>
+        <span class="badge pass">PASS</span>
+      </div>
+      
+      <div class="chips">
+        <div class="chip"><label>Signal</label><span>AssignDynamicBusId + Ack</span></div>
+        <div class="chip"><label>Expected</label><span>AssignDynamicBusId + Ack: request 0x2000 and response 0xF000 both present</span></div>
+        <div class="chip"><label>Observed</label><span>0x2000 seen; 0xF000 seen</span></div>
+        <div class="chip"><label>Sources</label><span>modbus</span></div>
+      </div>
+      <div class="notes"><h4>Notes — log evidence (2)</h4><div class="evidence"><span class="src">modbus</span> @ t1 (req)
+line req 0x2000</div><div class="evidence"><span class="src">modbus</span> @ t2 (resp)
+line resp 0xF000</div></div>
+    </div>
+    
+    <div class="case fail">
+      <div class="case-head">
+        <div class="case-title">DRIVE-SBX-0002 — SBX comms: MsgCpuUtil</div>
+        <span class="badge fail">FAIL</span>
+      </div>
+      
+      <div class="chips">
+        <div class="chip"><label>Signal</label><span>MsgCpuUtil</span></div>
+        <div class="chip"><label>Expected</label><span>MsgCpuUtil: request 0x000D and response 0x000E both present</span></div>
+        <div class="chip"><label>Observed</label><span>0x000D missing; 0x000E missing</span></div>
+        <div class="chip"><label>Sources</label><span>modbus</span></div>
+      </div>
+      <div class="notes"><h4>Notes — log evidence</h4><div class="evidence">No matching Modbus line in the watch window.</div></div>
+    </div>
+    <h2>Throttle — aggregate steps</h2>
+
+    <div class="case">
+      <div class="case-head">
+        <div class="case-title">DRIVE-THR-0001 — Aggregate step 1: LB2 → 5 A (step +5 A)</div>
+        <span class="badge pass">PASS</span>
+      </div>
+      <div class="metrics"><div class="metric"><label>SBX request (panel→Drive)</label><span>30 A</span></div><div class="metric"><label>Panel total (gateway)</label><span>42.5 A</span></div><div class="metric"><label>LB2 load</label><span>5 A</span></div></div>
+      <div class="chips">
+        <div class="chip"><label>Signal</label><span>charge_rate_a / panel_total / LB2</span></div>
+        <div class="chip"><label>Expected</label><span>Modbus charge_rate evidence at LB2 5 A</span></div>
+        <div class="chip"><label>Observed</label><span>SBX request 30 A · panel total 42.5 A · LB2 5 A</span></div>
+        <div class="chip"><label>Sources</label><span>modbus, gateway, lb2</span></div>
+      </div>
+      <div class="notes"><h4>Notes — log evidence (1)</h4><div class="evidence"><span class="src">modbus</span> @ t (MsgDriveStatus)
+charge_rate_a=30</div></div>
+    </div>
+    
+
+<h2>Phase timeline</h2>
+<div class="card">
+<table>
+  <thead><tr><th>Time</th><th>Phase</th><th>Iter</th><th>Message</th></tr></thead>
+  <tbody><tr><td colspan="4">No pipeline phases recorded.</td></tr></tbody>
+</table>
+</div>
+<p class="meta">Events in log: 8</p>
+</body></html>

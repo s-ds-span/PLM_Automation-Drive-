@@ -1,0 +1,39 @@
+# SPAN Drive charge-point dashboard (always-on, same pattern as lucid-dashboard).
+#
+# Do not copy this file to /etc as-is. Install on the wall PC with:
+#   ./scripts/install_dashboard_service.sh
+#
+# Placeholders filled by the installer: __USER__, __GROUP__, __HOME__, __ROOT__,
+# __SUPPLEMENTARY_GROUPS__
+#
+# Daily ops:
+#   sudo systemctl start|stop|restart drive-dashboard
+#   sudo journalctl -u drive-dashboard -f
+
+[Unit]
+Description=SPAN Drive charge-point dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+Group=__GROUP__
+__SUPPLEMENTARY_GROUPS__
+WorkingDirectory=__ROOT__
+Environment=HOME=__HOME__
+Environment=PYTHONUNBUFFERED=1
+Environment=PATH=__ROOT__/.venv/bin:/usr/local/bin:/usr/bin:/bin
+# systemd has no SSH agent; capture/gateway use keys + config.env passwords.
+ExecStart=__ROOT__/run_dashboard.sh
+Restart=always
+RestartSec=5
+TimeoutStopSec=25
+LimitNOFILE=4096
+KillMode=control-group
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=drive-dashboard
+
+[Install]
+WantedBy=multi-user.target

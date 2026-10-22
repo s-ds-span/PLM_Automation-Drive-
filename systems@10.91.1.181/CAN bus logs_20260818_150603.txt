@@ -1,7 +1,0 @@
-CAN Bus Logs — MASKED
-Started : 2026-08-18T15:06:03.236967
-============================================================
-=== INFO: CAN bus capture is masked for this run ===
-One-click pipeline is running SBX/Modbus (+ UART) only.
-Unset DRIVE_MASK_CANBUS or start Log Capture without mask to enable CAN.
-============================================================

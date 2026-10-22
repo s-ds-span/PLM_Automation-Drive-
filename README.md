@@ -134,8 +134,6 @@ A **user-supplied phase delay** (same value for all phases) is inserted between 
 
 **Gateway SSH is mandatory** before Phase 1. The run fails early if `GATEWAY_SSH_HOST` is unreachable. Teardown always runs after the last phase (or on error/cancel).
 
-```mermaid
-flowchart TD
   GW[Gateway SSH precheck]
   P1[1 Capture SBX CAN UART]
   P2[2 Commission or skip]
@@ -161,7 +159,7 @@ flowchart TD
 
 Dashboard **JAMA Test** section. Requires EV Simulator login + gateway SSH + `DRIVE_BREAKER_INSTANCE_ID`. No LB2.
 
-Phases: `capture` → `boot` → `handshake` (SBX comms) → `snapshot` → `jama_test` → `restore` (always).
+Phases: `capture` → `boot` → `handshake` (SBX comms) → `snapshot` → `jama_test(Selected)` → `restore` (always).
 
 Every gateway SSH command is streamed to the dashboard activity log (`gateway_cmd`) and listed in the HTML report with timestamps. Each JAMA case shows recorded time plus log-analysed time from Modbus/evidence.
 
@@ -357,7 +355,7 @@ When **Load Bank-2 is in use**, the run **fails immediately** with reason **“L
 
 ## Gateway SSH (lab cell → gateway)
 
-**Preferred (no long-term CA cert):** spanssh-config generated for the panel serial:
+spanssh-config generated for the panel serial:
 
 ```bash
 ssh -F ~/.ssh/span/XC-2610-3JFDY/spanssh-config XC-2610-3JFDY

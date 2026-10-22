@@ -1,4 +1,64 @@
 # Drive Automation
+## Layout
+drive_automation/
+  config.py              env + config.env → DriveConfig
+  orchestrator.py        both pipelines, availability, safe exit
+  jama_pipeline.py       JAMA phases, snapshot, restore
+  case_selection.py      DRIVE_CASES / checkbox aliases
+  jama_cases.py          pass/fail events + analysed timestamps
+  advertise_cases.py     advertised rates, obey breaker
+  comms_cases.py         comms loss, comms-required, power reset, rate 0
+  clients.py             EV HTTP and LB2 HTTP
+  gateway.py             spanssh GatewayShell, on_command hook
+  load_controller.py     LB2 closed-loop throttle
+  load_selection.py      which LB2 channels to use
+  commissioning.py       panel commission
+  panel_ratings.py       breaker / feeder ratings
+  panel_observe.py       live panel MQTT/status
+  safety.py              stop and safe shutdown
+  lab_capture.py         wall SSH capture (FT232R)
+  sbx_decode.py          SOF 0x60 / EOF 0x62 framer
+  sbx_verify.py          handshake pairs and abnormalities
+  sbx_gateway_feed.py    gateway journal vs bus
+  telemetry.py           run event stream
+  artifacts.py           downloadable run bundle
+  report.py              HTML pass/fail report
+  timeutil.py
+
+dashboard/
+  app.py                 Flask :8765, /api/run, stop, capture, logs
+  templates/index.html   throttle form + JAMA Test section
+  static/dashboard.js    steppers, activity, gateway_cmd
+  static/dashboard.css
+
+deploy/drive-dashboard.service
+run_dashboard.sh         local dashboard
+run_test.py              CLI (same orchestrator)
+config.env.example
+
+walls/                   one env file per wall PC
+  _template.env
+  _shared.env.example
+  in-sys-wall-005.env
+
+setup.sh                 wizard
+setup_wall.sh            deploy + config.env + optional --start
+new_wall.sh
+bootstrap_wall_pc.sh
+deploy_to_lab.sh
+scripts/                 wall helpers only
+  render_config_env.sh
+  validate_wall_env.sh
+  install_dashboard_service.sh
+  ensure_panel_in_config.sh
+  sync_spanssh_to_wall.sh
+
+unified_capture.py       standalone bus capture
+uart_capture.py
+uart_logger_4.py
+updatedd_log.py          offline SBX hex decode
+capture_gateway_config.py
+can_local_recovery.py
 
 One-click SPAN Drive charge-point test pipeline for the lab cell:
 

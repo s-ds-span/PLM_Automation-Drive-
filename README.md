@@ -1,5 +1,6 @@
 # Drive Automation
 ## Layout
+```text
 drive_automation/
   config.py              env + config.env → DriveConfig
   orchestrator.py        both pipelines, availability, safe exit
@@ -24,23 +25,19 @@ drive_automation/
   artifacts.py           downloadable run bundle
   report.py              HTML pass/fail report
   timeutil.py
-
 dashboard/
   app.py                 Flask :8765, /api/run, stop, capture, logs
   templates/index.html   throttle form + JAMA Test section
   static/dashboard.js    steppers, activity, gateway_cmd
   static/dashboard.css
-
 deploy/drive-dashboard.service
 run_dashboard.sh         local dashboard
 run_test.py              CLI (same orchestrator)
 config.env.example
-
 walls/                   one env file per wall PC
   _template.env
   _shared.env.example
   in-sys-wall-005.env
-
 setup.sh                 wizard
 setup_wall.sh            deploy + config.env + optional --start
 new_wall.sh
@@ -52,13 +49,20 @@ scripts/                 wall helpers only
   install_dashboard_service.sh
   ensure_panel_in_config.sh
   sync_spanssh_to_wall.sh
-
 unified_capture.py       standalone bus capture
 uart_capture.py
 uart_logger_4.py
 updatedd_log.py          offline SBX hex decode
 capture_gateway_config.py
 can_local_recovery.py
+```
+## Who talks to what
+| Path | Role |
+|---|---|
+| `clients.py` | EV simulator `:8091`, Load Bank-2 `:8080` |
+| `gateway.py` | SPAN gateway over spanssh |
+| `lab_capture.py` | wall PC serial tap, not the gateway |
+| `dashboard/app.py` | starts a worker thread; events go to the browser |
 
 One-click SPAN Drive charge-point test pipeline for the lab cell:
 
